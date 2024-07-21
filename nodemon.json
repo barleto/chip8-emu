@@ -1,0 +1,11 @@
+{
+  "verbose": true,
+  "execMap": {
+    "ts": "npx ts-node"
+  },
+  "ignore": [
+    "node_modules"
+  ],
+  "exec": "npm run startDev",
+  "exitcrash": true
+}

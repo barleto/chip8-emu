@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHIP-8 Emulator</title>
+    <style>
+        #out { height:144px; width:160px; border: 1px solid black; float:left; margin:0 5px 0 0; }
+    </style>
+</head>
+<body>
+    <h1>Hello, TypeScript!</h1>
+    <script src="./javascripts/chip8.js"></script>
+    <script src="./script.js"></script>
+    <div id="out">
+        <canvas id="screen" width="160" height="144">
+        </canvas>
+        <input type="file" id="fileInput">
+        <input type="button" value="Load ROM" id="loadRomButton">
+    </div>
+</body>
+</html>
