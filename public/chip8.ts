@@ -26,6 +26,32 @@ class Chip8 {
     constructor() {
         this._cpu = new CPU();
     }
+
+    public step() {
+        this._cpu.step();
+    }
+
+    public updateKeyState(key: number, isPressed: boolean) {
+        this._cpu.updateKeyState(key, isPressed? 1 : 0);
+        console.log(`${key.toString(16)}: ${isPressed}`);
+    }
+
+    public getScreenImageData() {
+        return this._cpu.frameBuff.imageData;
+    }
+
+    start() {
+        this._cpu.start();
+    }
+
+    stop() {
+        this._cpu.stop();
+    }
+
+    reset() {
+        this._cpu.reset();
+        this.start();
+    }
 }
 
 const TIMER_CLOCK_FREQ = 60;
@@ -70,6 +96,7 @@ class CPU {
 
     _waitingIO = false;
     _ioValue? : number;
+    private _halt: any = true;
 
     constructor() {
         this.reset();
@@ -110,7 +137,18 @@ class CPU {
         this.lastTimerTick = now;
     }
 
+    start() {
+        this._halt = true;
+    }
+
+    stop() {
+        this._halt = false;
+    }
+
     step() {
+        if(this._halt) {
+            return;
+        }
         this.timersStep();
         const op_H = this.mem.getByteAt(this.registers.PC);
         const op_L = this.mem.getByteAt(this.registers.PC + 1);
