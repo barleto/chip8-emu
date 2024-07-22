@@ -1,13 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CHIP-8 Emulator</title>
     <style>
-        #screen {border: 1px solid black; margin:0 5px 0 0; display: inline; }
+        #screen {
+            border: 1px solid black;
+            margin: 0 5px 0 0;
+            display: inline;
+        }
     </style>
 </head>
+
 <body>
     <h1>CHIP-8 Emulator</h1>
     <script src="./chip8.js"></script>
@@ -15,36 +21,60 @@
     <input type="file" id="fileInput">
     <input type="button" value="Load ROM" id="loadRomButton">
     <br>
+    <input type="button" value="start" onclick="chip8.start()" >
+    <input type="button" value="stop" onclick="chip8.stop()" >
+    <input type="button" value="reset" onclick="chip8.reset()" >
+    <br>
     <canvas id="screen" width="640" height="320">
     </canvas>
     <br>
     <table>
         <tbody>
-        <tr>
-        <td><input type="button" value="1" onpointerdown="chip8.updateKeyState(0x01, true);" onpointerup="chip8.updateKeyState(0x01, false);"></td>
-        <td><input type="button" value="2" onpointerdown="chip8.updateKeyState(0x02, true);" onpointerup="chip8.updateKeyState(0x02, false);"></td>
-        <td><input type="button" value="3" onpointerdown="chip8.updateKeyState(0x03, true);" onpointerup="chip8.updateKeyState(0x03, false);"></td>
-        <td><input type="button" value="C" onpointerdown="chip8.updateKeyState(0x0C, true);" onpointerup="chip8.updateKeyState(0x0C, false);"></td>
-        </tr>
-        <tr>
-        <td><input type="button" value="4" onpointerdown="chip8.updateKeyState(0x04, true);" onpointerup="chip8.updateKeyState(0x04, false);"></td>
-        <td><input type="button" value="5" onpointerdown="chip8.updateKeyState(0x05, true);" onpointerup="chip8.updateKeyState(0x05, false);"></td>
-        <td><input type="button" value="6" onpointerdown="chip8.updateKeyState(0x06, true);" onpointerup="chip8.updateKeyState(0x06, false);"></td>
-        <td><input type="button" value="D" onpointerdown="chip8.updateKeyState(0x0D, true);" onpointerup="chip8.updateKeyState(0x0D, false);"></td>
-        </tr>
-        <tr>
-        <td><input type="button" value="7" onpointerdown="chip8.updateKeyState(0x07, true);" onpointerup="chip8.updateKeyState(0x07, false);"></td>
-        <td><input type="button" value="8" onpointerdown="chip8.updateKeyState(0x08, true);" onpointerup="chip8.updateKeyState(0x08, false);"></td>
-        <td><input type="button" value="9" onpointerdown="chip8.updateKeyState(0x09, true);" onpointerup="chip8.updateKeyState(0x09, false);"></td>
-        <td><input type="button" value="E" onpointerdown="chip8.updateKeyState(0x0E, true);" onpointerup="chip8.updateKeyState(0x0E, false);"></td>
-        </tr>
-        <tr>
-        <td><input type="button" value="A" onpointerdown="chip8.updateKeyState(0x0A, true);" onpointerup="chip8.updateKeyState(0x0A, false);"></td>
-        <td><input type="button" value="0" onpointerdown="chip8.updateKeyState(0x00, true);" onpointerup="chip8.updateKeyState(0x00, false);"></td>
-        <td><input type="button" value="B" onpointerdown="chip8.updateKeyState(0x0B, true);" onpointerup="chip8.updateKeyState(0x0B, false);"></td>
-        <td><input type="button" value="F" onpointerdown="chip8.updateKeyState(0x0F, true);" onpointerup="chip8.updateKeyState(0x0F, false);"></td>
-        </tr>
+            <tr>
+                <td><input type="button" value="1" onpointerdown="chip8.updateKeyState(0x01, true);"
+                        onpointerup="chip8.updateKeyState(0x01, false);"></td>
+                <td><input type="button" value="2" onpointerdown="chip8.updateKeyState(0x02, true);"
+                        onpointerup="chip8.updateKeyState(0x02, false);"></td>
+                <td><input type="button" value="3" onpointerdown="chip8.updateKeyState(0x03, true);"
+                        onpointerup="chip8.updateKeyState(0x03, false);"></td>
+                <td><input type="button" value="C" onpointerdown="chip8.updateKeyState(0x0C, true);"
+                        onpointerup="chip8.updateKeyState(0x0C, false);"></td>
+            </tr>
+            <tr>
+                <td><input type="button" value="4" onpointerdown="chip8.updateKeyState(0x04, true);"
+                        onpointerup="chip8.updateKeyState(0x04, false);"></td>
+                <td><input type="button" value="5" onpointerdown="chip8.updateKeyState(0x05, true);"
+                        onpointerup="chip8.updateKeyState(0x05, false);"></td>
+                <td><input type="button" value="6" onpointerdown="chip8.updateKeyState(0x06, true);"
+                        onpointerup="chip8.updateKeyState(0x06, false);"></td>
+                <td><input type="button" value="D" onpointerdown="chip8.updateKeyState(0x0D, true);"
+                        onpointerup="chip8.updateKeyState(0x0D, false);"></td>
+            </tr>
+            <tr>
+                <td><input type="button" value="7" onpointerdown="chip8.updateKeyState(0x07, true);"
+                        onpointerup="chip8.updateKeyState(0x07, false);"></td>
+                <td><input type="button" value="8" onpointerdown="chip8.updateKeyState(0x08, true);"
+                        onpointerup="chip8.updateKeyState(0x08, false);"></td>
+                <td><input type="button" value="9" onpointerdown="chip8.updateKeyState(0x09, true);"
+                        onpointerup="chip8.updateKeyState(0x09, false);"></td>
+                <td><input type="button" value="E" onpointerdown="chip8.updateKeyState(0x0E, true);"
+                        onpointerup="chip8.updateKeyState(0x0E, false);"></td>
+            </tr>
+            <tr>
+                <td><input type="button" value="A" onpointerdown="chip8.updateKeyState(0x0A, true);"
+                        onpointerup="chip8.updateKeyState(0x0A, false);"></td>
+                <td><input type="button" value="0" onpointerdown="chip8.updateKeyState(0x00, true);"
+                        onpointerup="chip8.updateKeyState(0x00, false);"></td>
+                <td><input type="button" value="B" onpointerdown="chip8.updateKeyState(0x0B, true);"
+                        onpointerup="chip8.updateKeyState(0x0B, false);"></td>
+                <td><input type="button" value="F" onpointerdown="chip8.updateKeyState(0x0F, true);"
+                        onpointerup="chip8.updateKeyState(0x0F, false);"></td>
+            </tr>
         </tbody>
-        </table>
+    </table>
+    <br>
+    <input type="button" value="Step" onclick="chip8.forceSingleStep()">
+    <pre id="console"></pre>
 </body>
+
 </html>

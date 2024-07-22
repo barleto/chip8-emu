@@ -20,19 +20,26 @@ function clampByte(val: number, nBytes: number = 1) {
 }
 
 class Chip8 {
-
     private _cpu: CPU;
+    private _halt:boolean = true;
 
     constructor() {
         this._cpu = new CPU();
     }
 
     public step() {
+        if(this._halt) {
+            return;
+        }
+        this._cpu.step();
+    }
+
+    public forceSingleStep() {
         this._cpu.step();
     }
 
     public updateKeyState(key: number, isPressed: boolean) {
-        this._cpu.updateKeyState(key, isPressed? 1 : 0);
+        this._cpu.updateKeyState(key, isPressed ? 1 : 0);
         console.log(`${key.toString(16)}: ${isPressed}`);
     }
 
@@ -41,19 +48,46 @@ class Chip8 {
     }
 
     start() {
-        this._cpu.start();
+        this._halt = false;
     }
 
     stop() {
-        this._cpu.stop();
+        this._halt = true;
     }
 
     reset() {
         this._cpu.reset();
-        this.start();
+    }
+
+    async loadRom(romFile: File) {
+        const reader = new FileReader();
+        reader.readAsArrayBuffer(romFile);
+
+        reader.onerror = () => {
+            console.log(reader.error);
+        };
+
+        reader.onload = () => {
+            this.reset();
+            console.log(`Load file '${romFile?.name}' success.`);
+            let romByteArray = Array.from(new Uint8Array(reader.result as ArrayBuffer));
+            this._cpu.mem.setMemStartingAt(MEM_PROG_ENTRY_POINT, romByteArray);
+        };
+    }
+
+    debug() {
+        return {
+            "MEM[PC]": `0x${this._cpu.mem.getByteAt(this._cpu.registers.PC).toString(16).toUpperCase()} 0x${this._cpu.mem.getByteAt(this._cpu.registers.PC+1).toString(16).toUpperCase()}`,
+            PC: `0x${this._cpu.registers.PC.toString(16).toUpperCase()}`,
+            SP: `0x${this._cpu.registers.SP.toString(16).toUpperCase()}`,
+            I: `0x${this._cpu.registers.I.toString(16).toUpperCase()}`,
+            V: this._cpu.registers.V.map((x, i) => `V${i.toString(16).toUpperCase()} : 0x${x.toString(16).toUpperCase()}`)
+
+        };
     }
 }
 
+const MEM_PROG_ENTRY_POINT = 0x200;
 const TIMER_CLOCK_FREQ = 60;
 const CHAR_SPRITE_WIDTH = 5;
 const FONT_SET_ARRAY = [
@@ -95,8 +129,7 @@ class CPU {
     lastTimerTick = Date.now();
 
     _waitingIO = false;
-    _ioValue? : number;
-    private _halt: any = true;
+    _ioValue?: number;
 
     constructor() {
         this.reset();
@@ -113,13 +146,16 @@ class CPU {
         this.mem = new Memory();
         this.frameBuff = new FrameBuffer();
         this.stack = new Stack();
+        this.frameBuff.clearScreen();
+        this.mem.reset();
+        this.stack.reset();
     }
 
     updateKeyState(key: number, newState: number) {
         newState = clamp(0, 1, newState);
         const prevState = this.keys[key];
         this.keys[key] = newState;
-        if(this._waitingIO && !prevState && newState) {
+        if (this._waitingIO && !prevState && newState) {
             this._ioValue = key;
             this.step();
         }
@@ -127,9 +163,9 @@ class CPU {
 
     timersStep() {
         const now = Date.now();
-        const period = 1/TIMER_CLOCK_FREQ;
+        const period = 1 / TIMER_CLOCK_FREQ;
         //Timers clock follow a different clock (Usually 60HZ)
-        if(now - this.lastTimerTick < period) {
+        if (now - this.lastTimerTick < period) {
             return;
         }
         this.delayTimer.tick();
@@ -137,24 +173,13 @@ class CPU {
         this.lastTimerTick = now;
     }
 
-    start() {
-        this._halt = true;
-    }
-
-    stop() {
-        this._halt = false;
-    }
-
     step() {
-        if(this._halt) {
-            return;
-        }
         this.timersStep();
         const op_H = this.mem.getByteAt(this.registers.PC);
         const op_L = this.mem.getByteAt(this.registers.PC + 1);
         const fullOp = (op_H << 8) | op_L;
-        const op_HPair = { h: op_H & 0x0F, l: op_H & 0xF0 };
-        const op_LPair = { h: op_L & 0x0F, l: op_L & 0xF0 };
+        const op_HPair = { h: (op_H & 0xF0) >> 4, l: op_H & 0x0F };
+        const op_LPair = { h: (op_L & 0xF0) >> 4, l: op_L & 0x0F };
         const Vx = op_HPair.l;
         const Vy = op_LPair.h;
         switch (op_HPair.h) {
@@ -164,13 +189,13 @@ class CPU {
                         this.frameBuff.clearScreen();
                         break;
                     case 0xEE://RET
-                        this.registers.PC = this.stack.get(this.registers.SP);
+                        this.registers.PC = this.stack.get(this.registers.SP) -2;
                         this.registers.SP = Math.max(0, this.registers.SP - 1);
                         break;
                 }
                 break;
             case 0x1://JP
-                this.registers.PC = fullOp & 0x0FFF;
+                this.registers.PC = (fullOp & 0x0FFF) - 2;
                 break;
             case 0x2: //CALL
                 this.registers.SP++;
@@ -279,7 +304,7 @@ class CPU {
             case 0xB:
                 //JP V0, addr
                 var addr = fullOp & 0x0FFF;
-                this.registers.PC = this.registers.V[0] + addr;
+                this.registers.PC = this.registers.V[0] + addr - 2;
                 break;
             case 0xC:
                 //RND Vx, byte
@@ -319,12 +344,12 @@ class CPU {
                     case 0x0A:
                         //LD Vx, K
                         //Halts programm until there's a keypress
-                        if(!this._waitingIO) { //Start waiting for key press
+                        if (!this._waitingIO) { //Start waiting for key press
                             this._waitingIO = true;
                             return; //Don't increase PC
                         }
 
-                        if(!this._ioValue) { //Still waiting for jey press
+                        if (this._ioValue === undefined) { //Still waiting for jey press
                             return; //Don't increase PC
                         } else {
                             //Key press found
@@ -332,7 +357,7 @@ class CPU {
                             this._ioValue = undefined; //reset value for next time
                             this._waitingIO = false; //unset waitingFlag
                         }
-                        
+
                         break;
                     case 0x15:
                         //LD DT, Vx
@@ -351,7 +376,7 @@ class CPU {
                         this.registers.I = this.registers.V[Vx] * CHAR_SPRITE_WIDTH;
                         break;
                     case 0x33:
-                        //LD B, Vx
+                        //LD B, Vx (BCD)
                         var num = this.registers.V[Vx];
                         var hund = Math.floor(num / 100 % 10);
                         var dec = Math.floor(num / 10 % 10);
@@ -414,6 +439,8 @@ class Memory {
     reset() {
         //Load the font set ont he first 0x200 bytes of memory
         this.mem = [...FONT_SET_ARRAY];
+        this.mem[0x0FFE] = 0x1F; 
+        this.mem[0x0FFF] = 0xFE;
     }
 
     getByteAt(address: number) {
@@ -429,16 +456,23 @@ class Memory {
         }
         this.mem[address] = clampByte(byte);
     }
+
+    setMemStartingAt(offset: number, data: number[]) {
+        console.log(`Loading ${data.length} bytes, starting at 0x${offset.toString(16).toUpperCase()}`);
+        for(let i = 0; i < data.length; i++) {
+            this.setValue(offset + i, data[i]);
+        }
+    }
 }
 
 /**
  * iterate each bit on the value calling `fn` for each, passing the value and bit position as a parameter, from high to low bits.
  * Ex: In a byte, `fn` id going to be called 8 times, with `idx` going from from 7 to 0, along the steps.
  */
-function iterateBits(value: number, bitCount: number, fn:(b: number, idx: number) => any) {
-    for(let i = bitCount; i > 0; i--) {
+function iterateBits(value: number, bitCount: number, fn: (b: number, idx: number) => any) {
+    for (let i = bitCount - 1; i >= 0; i--) {
         const bitVal = (value >> i) & 0x01;
-        fn(bitVal, i - 1);
+        fn(bitVal, i);
     }
 }
 
@@ -447,10 +481,8 @@ class FrameBuffer {
     width: number;
     height: number;
 
-    screen: number[] = [];
-
     imageData: ImageData;
-    pallete = [0x0D, 0x02];
+    pallete = [0xDD, 0x44];
 
     constructor(width: number = 64, height: number = 32) {
         this.width = width;
@@ -459,36 +491,29 @@ class FrameBuffer {
     }
 
     clearScreen() {
-        this.screen = [];
         for (let i = 0; i < this.imageData.data.length; i += 4) {
             this.colorPixelIdxAt(i, this.pallete[0]);
         }
     }
 
-    colorpIxelCoordAt(x: number, y:number, color: number){
-        const i = y * this.width + x;
+    colorpIxelCoordAt(x: number, y: number, color: number) {
+        let i = y * this.width + x;
+        i *= 4;
         this.imageData.data[i] = color;
-            this.imageData.data[i + 1] = color;
-            this.imageData.data[i + 2] = color;
-            this.imageData.data[i + 3] = color;
+        this.imageData.data[i + 1] = color;
+        this.imageData.data[i + 2] = color;
+        this.imageData.data[i + 3] = 255;
     }
 
-    colorPixelIdxAt(idx: number, color: number){
+    colorPixelIdxAt(idx: number, color: number) {
         this.imageData.data[idx] = color;
-            this.imageData.data[idx + 1] = color;
-            this.imageData.data[idx + 2] = color;
-            this.imageData.data[idx + 3] = color;
+        this.imageData.data[idx + 1] = color;
+        this.imageData.data[idx + 2] = color;
+        this.imageData.data[idx + 3] = 255;
     }
 
-    updateImageData() {
-        this.clearScreen();
-        for(let i = 0; i < this.screen.length; i++) {
-            const byteVal = this.screen[i] ?? 0;
-            iterateBits(byteVal, 8,(bitVal, bitIdx) =>{
-                const imgIdx = (i * 8) + ((8 - bitIdx + 1) * 4);
-                this.colorPixelIdxAt(imgIdx, this.pallete[bitVal]);
-            });
-        }
+    isSet(byte: number, i: number) {
+        return (byte & (0x01 << i))? 1 : 0
     }
 
     /**
@@ -501,11 +526,14 @@ class FrameBuffer {
     drawSprite(x: number, y: number, spriteByteData: number[]): number {
         let unset: boolean = false;
         let height = spriteByteData.length;
-        for (var h = y; h < y + height; h++) {
-            const newVal = spriteByteData[h - y];
-            const prevVal = this.screen[h * this.width + x] ?? 0;
-            unset ||= (prevVal ^ newVal & 0) > 0;
-            this.screen[h * this.width + x] = newVal;
+        for (let h = 0; h < height; h++) {
+            const byteVal = spriteByteData[h];
+            const initPixelId = ((y + h) * this.width + x) * 4;
+            iterateBits(byteVal, 8, (b, bitIdx)=>{
+                const targetPixel = initPixelId + (7 - bitIdx) * 4;
+                const newValue = this.pallete[b];
+                this.colorPixelIdxAt(targetPixel, newValue);
+            });
         }
         return unset ? 1 : 0;
     }
