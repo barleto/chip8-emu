@@ -338,13 +338,13 @@ class CPU {
                 switch (op_L) {
                     case 0x9E:
                         //SKP Vx
-                        if (this.keys[Vx] === 1) {
+                        if (this.keys[this.registers.V[Vx]] === 1) {
                             this.registers.PC += 2;
                         }
                         break;
                     case 0xA1:
                         //SKNP Vx
-                        if (!this.keys[Vx]) {
+                        if (this.keys[this.registers.V[Vx]] === 0) {
                             this.registers.PC += 2;
                         }
                         break;
