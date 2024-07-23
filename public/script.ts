@@ -2,6 +2,11 @@
 const chip8 = new Chip8();
 
 document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener("keypress",(ev)=>{
+        if(ev.key === 's') {
+            chip8.forceSingleStep();
+        }
+    });
 
     let fileInput: File | undefined = undefined;
     document.getElementById("fileInput")?.addEventListener("change", (event: any) => {

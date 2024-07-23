@@ -11,6 +11,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 const chip8 = new Chip8();
 document.addEventListener('DOMContentLoaded', () => {
     var _a, _b;
+    document.addEventListener("keypress", (ev) => {
+        if (ev.key === 's') {
+            chip8.forceSingleStep();
+        }
+    });
     let fileInput = undefined;
     (_a = document.getElementById("fileInput")) === null || _a === void 0 ? void 0 : _a.addEventListener("change", (event) => {
         fileInput = event.target.files[0];

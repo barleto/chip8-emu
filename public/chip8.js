@@ -19,6 +19,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 | Reserved  |           | Program/Data   |
 |___________|___________|________________|
  */
+function asBin(n) {
+    return `0b${n.toString(2).padStart(8, "0")}`;
+}
+function asHex(n) {
+    return `0x${n.toString(16).padStart(2, "0")}`;
+}
 function clamp(min, max, val) {
     return Math.max(min, Math.min(max, val));
 }
@@ -41,7 +47,6 @@ class Chip8 {
     }
     updateKeyState(key, isPressed) {
         this._cpu.updateKeyState(key, isPressed ? 1 : 0);
-        console.log(`${key.toString(16)}: ${isPressed}`);
     }
     getScreenImageData() {
         return this._cpu.frameBuff.imageData;
@@ -167,7 +172,7 @@ class CPU {
                         this.frameBuff.clearScreen();
                         break;
                     case 0xEE: //RET
-                        this.registers.PC = this.stack.get(this.registers.SP) - 2;
+                        this.registers.PC = this.stack.get(this.registers.SP - 1) - 2;
                         this.registers.SP = Math.max(0, this.registers.SP - 1);
                         break;
                 }
@@ -176,11 +181,11 @@ class CPU {
                 this.registers.PC = (fullOp & 0x0FFF) - 2;
                 break;
             case 0x2: //CALL
+                this.stack.set(this.registers.SP, this.registers.PC + 2);
                 this.registers.SP++;
-                this.stack.set(this.registers.SP, this.registers.PC);
+                this.registers.PC = (fullOp & 0x0FFF) - 2;
                 break;
-            case 0x3: //SE Vx, byteyyte
-                this.registers.V[Vx] = Math.round(Math.random() * 256);
+            case 0x3: //SE Vx, byte
                 if (this.registers.V[Vx] === op_L) {
                     this.registers.PC += 2;
                 }
@@ -199,73 +204,80 @@ class CPU {
                 this.registers.V[Vx] = op_L;
                 break;
             case 0x7: // ADD Vx,b
-                this.registers.V[Vx] = this.registers.V[Vx] + op_L;
+                let sum = this.registers.V[Vx] + op_L;
+                this.registers.V[0xF] = sum > 0xFF ? 1 : 0;
+                this.registers.V[Vx] = (sum) % 0x100;
                 break;
             case 0x8:
                 switch (op_LPair.l) {
                     case 0x0:
                         //LD Vx,Vy
-                        this.registers.V[Vx] = this.registers.V[op_LPair.h];
+                        this.registers.V[Vx] = this.registers.V[Vy];
                         break;
                     case 0x1:
                         //OR Vx,Vy
-                        this.registers.V[Vx] = this.registers.V[Vx] | this.registers.V[op_LPair.h];
+                        this.registers.V[Vx] = this.registers.V[Vx] | this.registers.V[Vy];
                         break;
                     case 0x2:
                         //AND Vx,Vy
-                        this.registers.V[Vx] = this.registers.V[Vx] & this.registers.V[op_LPair.h];
+                        this.registers.V[Vx] = this.registers.V[Vx] & this.registers.V[Vy];
                         break;
                     case 0x3:
                         // XOR Vx, vy
-                        this.registers.V[Vx] = (this.registers.V[Vx] ^ this.registers.V[op_LPair.h]) & 0xFFFF;
+                        this.registers.V[Vx] = (this.registers.V[Vx] ^ this.registers.V[Vy]) & 0xFF;
                         break;
                     case 0x4:
-                        //ADD Vx,Vy
-                        let add = this.registers.V[Vx] - this.registers.V[op_LPair.h];
-                        if (add > 0xFFFF) {
-                            add = add % 0xFFFF;
+                        //ADD Vx,
+                        let add = this.registers.V[Vx] + this.registers.V[Vy];
+                        if (add > 0xFF) {
+                            add = add % 0x100;
+                            this.registers.V[Vx] = add;
                             this.registers.V[0xF] = 1;
                         }
                         else {
+                            this.registers.V[Vx] = add;
                             this.registers.V[0xF] = 0;
                         }
-                        this.registers.V[Vx] = add;
                         break;
                     case 0x5:
                         //SUB Vx,Vy
-                        let sub = this.registers.V[Vx] - this.registers.V[op_LPair.h];
+                        let sub = this.registers.V[Vx] - this.registers.V[Vy];
                         if (sub < 0) {
+                            sub = 256 + sub;
+                            this.registers.V[Vx] = sub;
                             this.registers.V[0xF] = 0;
-                            sub = 256 - sub;
                         }
                         else {
+                            this.registers.V[Vx] = sub;
                             this.registers.V[0xF] = 1;
                         }
-                        this.registers.V[Vx] = sub;
                         break;
                     case 0x6:
                         //SHR Vx
-                        let shr = this.registers.V[op_LPair.h] >> 1;
-                        this.registers.V[0xF] = this.registers.V[op_LPair.h] & 0x0001;
+                        var prevVal = this.registers.V[Vy];
+                        let shr = prevVal >> 1;
                         this.registers.V[Vx] = shr;
+                        this.registers.V[0xF] = prevVal & 0x01;
                         break;
                     case 0x7:
                         //SUB Vx,Vy
-                        let subN = this.registers.V[op_LPair.h] - this.registers.V[Vx];
+                        let subN = this.registers.V[Vy] - this.registers.V[Vx];
                         if (subN < 0) {
+                            subN = 256 + subN;
+                            this.registers.V[Vx] = subN;
                             this.registers.V[0xF] = 0;
-                            subN = 256 - subN;
                         }
                         else {
+                            this.registers.V[Vx] = subN;
                             this.registers.V[0xF] = 1;
                         }
-                        this.registers.V[Vx] = subN;
                         break;
                     case 0xE:
-                        //SHL Vx
-                        let shL = this.registers.V[op_LPair.h] << 1;
-                        this.registers.V[0xF] = this.registers.V[op_LPair.h] & 0x8000;
+                        //SHL Vx, Vy
+                        var prevVal = this.registers.V[Vy];
+                        let shL = (prevVal << 1) & 0xFF;
                         this.registers.V[Vx] = shL;
+                        this.registers.V[0xF] = (prevVal & 0b10000000) > 0 ? 1 : 0;
                         break;
                 }
                 break;
@@ -296,7 +308,7 @@ class CPU {
                 for (var i = 0; i < length; i++) {
                     spriteByteData.push(this.mem.getByteAt(this.registers.I + i));
                 }
-                this.registers.V[0xF] = this.frameBuff.drawSprite(Vx, Vy, spriteByteData);
+                this.registers.V[0xF] = this.frameBuff.drawSprite(this.registers.V[Vx], this.registers.V[Vy], spriteByteData);
                 break;
             case 0xE:
                 switch (op_L) {
@@ -308,7 +320,7 @@ class CPU {
                         break;
                     case 0xA1:
                         //SKNP Vx
-                        if (this.keys[Vx] === 0) {
+                        if (!this.keys[Vx]) {
                             this.registers.PC += 2;
                         }
                         break;
@@ -347,7 +359,7 @@ class CPU {
                         break;
                     case 0x1E:
                         //ADD I, Vx
-                        this.registers.I = this.registers.I + this.registers.V[Vx];
+                        this.registers.I = (this.registers.I + this.registers.V[Vx]) & 0xFFFF;
                         break;
                     case 0x29:
                         //LD F, Vx
@@ -396,7 +408,7 @@ class Stack {
         return (_a = this.stack[addr]) !== null && _a !== void 0 ? _a : 0x0;
     }
     set(addr, val) {
-        this.stack[addr] = clampByte(val);
+        this.stack[addr] = clamp(0, 0xFFFF, val);
     }
 }
 class Memory {
@@ -484,8 +496,10 @@ class FrameBuffer {
             const initPixelId = ((y + h) * this.width + x) * 4;
             iterateBits(byteVal, 8, (b, bitIdx) => {
                 const targetPixel = initPixelId + (7 - bitIdx) * 4;
-                const newValue = this.pallete[b];
-                this.colorPixelIdxAt(targetPixel, newValue);
+                const prevValue = this.imageData.data[targetPixel] === this.pallete[1] ? 1 : 0;
+                const newValue = b ? 1 : 0;
+                unset || (unset = !!prevValue && !newValue);
+                this.colorPixelIdxAt(targetPixel, this.pallete[prevValue ^ newValue]);
             });
         }
         return unset ? 1 : 0;
